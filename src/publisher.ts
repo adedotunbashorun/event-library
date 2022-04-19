@@ -3,7 +3,6 @@ import { RabbitMqBroker } from './brokers/rabbitMq/rabbitMqBroker';
 import { IEvent } from './interface/IEvent';
 import { IEventHandlerConfig } from './interface/IEventHandlerConfig';
 import { prefixRoutingKey } from './utils';
-import { RequestContext } from '@indicina1/observability-nodejs';
 
 export abstract class Publisher<T extends IEvent> {
   private readonly logger = new Logger(Publisher.name);
@@ -28,10 +27,7 @@ export abstract class Publisher<T extends IEvent> {
   async publish(data: T['data']['data']): Promise<void> {
     // add ctx to message
     let _ctx = {};
-    const requestContext = RequestContext.getStore();
-    if (requestContext) {
-      _ctx = requestContext.toJSON();
-    }
+
     const pubData = { data, auditConfig: this.auditConfig, _ctx };
     const exchangeName = 'global';
     const exchangeType = 'topic';

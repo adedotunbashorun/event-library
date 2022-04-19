@@ -4,7 +4,6 @@ import { RabbitMqBroker } from './brokers/rabbitMq/rabbitMqBroker';
 import { prefixRoutingKey } from './utils/index';
 import { IEvent } from './interface/IEvent';
 import { IEventHandlerConfig } from './interface/IEventHandlerConfig';
-import { RequestContext } from '@indicina1/observability-nodejs';
 
 export abstract class Listener<T extends IEvent> {
   private readonly logger = new Logger(Listener.name);
@@ -47,7 +46,6 @@ export abstract class Listener<T extends IEvent> {
           try {
             // build context from message
             const ctx = data._ctx || {};
-            RequestContext.start(ctx);
 
             // handle message
             await this.onMessage(data, msg);
