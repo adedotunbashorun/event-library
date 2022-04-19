@@ -1,8 +1,8 @@
 {
-  "name": "@indicina1/event-library",
+  "name": "@adedotunbashorun/event-library",
   "version": "0.0.1",
   "description": "",
-  "repository": "git@gitlab.com:indicina1/general/event-library.git",
+  "repository": "https://github.com/adedotunbashorun/event-library.git",
   "author": "Adedotun Bashorun <adedotunolawale@gmail.com>",
   "license": "MIT",
   "main": "dist/index.js",
@@ -84,6 +84,6 @@
     "testEnvironment": "node"
   },
   "publishConfig": {
-    "@indicina1/registry": "https://gitlab.com/api/v4/projects/34401703/packages/npm/"
+    "registry": "https://registry.npmjs.org/"
   }
 }
