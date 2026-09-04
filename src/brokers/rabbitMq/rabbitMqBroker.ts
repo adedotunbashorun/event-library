@@ -1,32 +1,29 @@
 /**
- * Connect to a rabbitMq instance
- *
- * @todo create custom decorator for this.
- * @todo abstract this implementation
+ * Connect to a RabbitMQ instance.
  */
-import * as amqpConn from 'amqplib';
+import { connect, ChannelModel } from 'amqplib';
 import { Injectable, Logger } from '@nestjs/common';
-import { IConnectionOptions } from '../../interface/IConnectionOptions';
+import { IConnectionOptions } from '../../interface/IConnectionOptions.js';
 
 @Injectable()
 export class RabbitMqBroker {
-  private _connection: amqpConn.Connection;
+  private _connection: ChannelModel;
   private readonly logger = new Logger(RabbitMqBroker.name);
 
   /**
-   * Initialize rabbitMq client
+   * Initialize RabbitMQ client
    */
   async connect(connectionOptions: IConnectionOptions): Promise<void> {
     try {
-      this._connection = await amqpConn.connect(connectionOptions);
+      this._connection = await connect(connectionOptions);
       this.logger.log('Connection successful');
     } catch (e) {
-      throw new Error(e);
+      throw e instanceof Error ? e : new Error(String(e));
     }
   }
 
   /**
-   * Return the rabbitMq connection.
+   * Return the RabbitMQ connection.
    */
   get connection() {
     if (!this._connection) {
@@ -37,7 +34,12 @@ export class RabbitMqBroker {
   }
 
   async close() {
-    this._connection.close();
+    if (!this._connection) {
+      return;
+    }
+
+    await this._connection.close();
+    this._connection = undefined;
   }
 }
 
