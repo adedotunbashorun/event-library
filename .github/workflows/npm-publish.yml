@@ -1,9 +1,8 @@
-# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
-# For more information see: https://help.github.com/actions/language-and-framework-guides/publishing-nodejs-packages
+# This workflow will run tests using node and then publish a package to npm when a release is created
 
 name: event-library
 
-on: 
+on:
   push:
     branches: [master, dev]
 
@@ -11,25 +10,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 24
           registry-url: https://registry.npmjs.org/
       - run: npm ci
-  
+      - run: npm test
+
   publish-npm:
     name: Release
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 24
       - name: Install dependencies
-        run: npm ci   
+        run: npm ci
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

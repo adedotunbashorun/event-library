@@ -1,84 +1,110 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo_text.svg" width="320" alt="Nest Logo" /></a>
-</p>
+# @adedotunolawale/event-library
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Installation
+Typed RabbitMQ pub/sub for NestJS microservices. Services share one event contract — subjects, publishers, listeners, and routing keys — instead of each team inventing its own AMQP wiring.
 
 ```bash
-$ npm install
+npm install @adedotunolawale/event-library
 ```
 
-## Running the app
+Requires **Node.js 18+** and **NestJS 10+**. This package is ESM (`"type": "module"`).
 
-```bash
-# development
-$ npm run build
-## Test
+## Why it exists
 
-```bash
-# unit tests
-$ npm run test
+In a multi-service NestJS system, “user created” should mean the same routing key and payload everywhere. This library is that shared contract: a publisher and listener bound to the **same topic exchange**, with typed event data.
 
-# e2e tests
-$ npm run test:e2e
+## Quick start
 
-# test coverage
-$ npm run test:cov
+```ts
+import {
+  Publisher,
+  Listener,
+  RabbitMqBroker,
+  Subjects,
+  IEvent,
+  EventEnvelope,
+} from '@adedotunolawale/event-library';
+
+interface UserCreatedEvent extends IEvent<{ userId: string; email: string }> {
+  subject: Subjects.UserCreated;
+}
+
+class UserCreatedPublisher extends Publisher<UserCreatedEvent> {
+  subject = Subjects.UserCreated;
+}
+
+class UserCreatedListener extends Listener<UserCreatedEvent> {
+  subject = Subjects.UserCreated;
+
+  async onMessage(payload: EventEnvelope<UserCreatedEvent['data']>) {
+    // payload.data is { userId, email }
+  }
+}
+
+const broker = new RabbitMqBroker();
+await broker.connect({
+  protocol: 'amqp',
+  hostname: 'localhost',
+  username: 'guest',
+  password: 'guest',
+  vhost: '/',
+});
+
+const config = { client: broker, routingKeyPrefix: 'identity' };
+
+await new UserCreatedPublisher(config).publish({
+  userId: 'u-1',
+  email: 'dev@example.com',
+});
+
+await new UserCreatedListener(config).listen();
 ```
 
-## Support
+Routing key is `{prefix}.{subject}` — here `identity.user.created`.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Topology
 
-## Stay in touch
+Publishers and listeners both use the `events` topic exchange by default. Pass `exchangeName` in the config if you already have topology:
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```ts
+const config = {
+  client: broker,
+  routingKeyPrefix: 'identity',
+  exchangeName: 'global',
+};
+```
+
+Both sides must use the same exchange, or messages will not be delivered.
+
+## Failure handling
+
+- `publish` throws if the broker rejects the message. Callers can retry or fail the request.
+- A listener that throws is **nacked without requeue**, so a poison payload cannot loop forever. Bind a dead-letter exchange on the queue if you need to inspect failures.
+- `consume` ignores `null` deliveries (RabbitMQ sends these on cancel).
+
+## Subjects
+
+`Subjects` is a starter set of event names. Add your own string subjects on `IEvent` if this list does not cover your domain.
+
+## Publish envelope
+
+Every message is JSON:
+
+```ts
+{
+  data: { /* your payload */ },
+  auditConfig: { template: null, retentionPeriod: 7 },
+  _ctx: {}
+}
+```
+
+## Development
+
+```bash
+npm install
+npm test
+npm run build
+```
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
-
-### Generating new version
-To publish a new version you have to trigger Publish job manually, and pased on commit messages, it will generate new version as following:
-| commit type | release |
-| ------ | ------ |
-| docs | patch |
-| chore | patch |
-| test | patch |
-| fix | patch |
-| feat | minor |
-| feat(BREAKING) | major |
-
-and any commit message with breaking changes will generate a major release.
-eg for a commit message:
-```bash
-fix: <fixed stuff>
-
-BREAKING CHANGE: this part will generate major release.
-```
+MIT

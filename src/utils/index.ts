@@ -1,5 +1,3 @@
-import { Subjects } from '../subjects';
-
-export const prefixRoutingKey = (prefix: string, subject: Subjects) => {
+export const prefixRoutingKey = (prefix: string, subject: string) => {
   return `${prefix}.${subject}`;
 };
